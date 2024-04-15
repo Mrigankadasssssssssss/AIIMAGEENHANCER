@@ -1,95 +1,111 @@
+"use client"
 import Image from "next/image";
 import styles from "./page.module.css";
+import { useState } from "react";
+
+const apikey: any = process.env.NEXT_PUBLIC_IMAGE_ENHANCEMENT_API_KEY
+
 
 export default function Home() {
+  const [currentImage, setCurrentImage] = useState<any>(null);
+  const [generatedImage, setGeneratedImage] = useState<any>(null);
+
+  const [description, setDescription] = useState('');
+
+  const handleFileChange = (event: any) => {
+    const selectedFile = event.target.files[0];
+    if (selectedFile) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        setCurrentImage(e.target.result);
+      }
+      reader.readAsDataURL(selectedFile);
+    }
+  }
+
+  const handleChange = (event: any) => {
+    setDescription(event.target.value);
+  }
+
+  const generateImage = async () => {
+    if (description.length == 0) {
+      return
+    }
+    if (!currentImage) {
+      return
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('background.prompt', description);
+      formData.append('outputSize', '1000x1000');
+      formData.append('padding', '0.1');
+
+      const base64Response = await fetch(currentImage);
+      const blob = await base64Response.blob();
+      formData.append('imageFile', blob);
+
+      const response = await fetch('https://image-api.photoroom.com/v2/edit',{
+        method:'POST',
+        headers: {
+          'x-api-key': apikey, // Replace with your actual API key
+        },
+        body:formData
+      })
+
+      if (!response.ok){
+        const text = await response.text(); // Try converting the body to text
+        console.error('API request failed:', response.status, text);
+        throw new Error(`API request failed with status: ${response.status}`);
+      }
+
+      const data = await response.blob();
+      const url = window.URL.createObjectURL(data);
+      setGeneratedImage(url)
+
+    }
+    catch(error){
+      console.log(error)
+    }
+  }
   return (
     <main className={styles.main}>
-      <div className={styles.description}>
-        <p>
-          Get started by editing&nbsp;
-          <code className={styles.code}>src/app/page.tsx</code>
-        </p>
-        <div>
-          <a
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className={styles.vercelLogo}
-              width={100}
-              height={24}
-              priority
-            />
-          </a>
+      <div className={styles.maincontainer}>
+        <h1>AI IMAGE <span>ENHANCER</span></h1>
+        <div className={styles.bothImages}>
+          {currentImage && <img src={currentImage} alt="Generated Image" />}
+          {generatedImage && <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+          </svg>
+          }
+          {generatedImage && <img src={generatedImage} alt="Generated Image" />}
+          {generatedImage &&
+            <a className={styles.downloadbtn} download={true} href={generatedImage} target="_blank">Download</a>
+          }
+
         </div>
-      </div>
-
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
+        <input type="file"
+          id="fileInput"
+          accept="image/*"
+          style={{ display: 'none' }}
+          onChange={handleFileChange}
         />
+
+        <button className={styles.selectImage} onClick={() => document.getElementById('fileInput')?.click()}>
+          Select new image
+        </button>
+
+        {
+          currentImage && <div
+            className={styles.promptContainer}
+          >
+            <input type="text" value={description} onChange={handleChange} placeholder="Describe the image" />
+            <button onClick={generateImage}>Try</button>
+
+          </div>
+        }
       </div>
 
-      <div className={styles.grid}>
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Docs <span>-&gt;</span>
-          </h2>
-          <p>Find in-depth information about Next.js features and API.</p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Learn <span>-&gt;</span>
-          </h2>
-          <p>Learn about Next.js in an interactive course with&nbsp;quizzes!</p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Templates <span>-&gt;</span>
-          </h2>
-          <p>Explore starter templates for Next.js.</p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className={styles.card}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2>
-            Deploy <span>-&gt;</span>
-          </h2>
-          <p>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
-      </div>
     </main>
   );
 }
